@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (optional)
+    //   - email: string (required, PII)
+    //   - photoURL: string (optional)
+    //   - isPremium: bool (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: chats
+    // Document ID: chatId
+    // Fields:
+    //   - id: string (required)
+    //   - ownerId: string (required)
+    //   - platform: string (required, enum: whatsapp, imessage, messenger)
+    //   - contactName: string (required)
+    //   - contactPhoto: string (optional)
+    //   - messages: list (required)
+    //   - settings: map (required)
+    //   - isPublic: bool (required)
+    //   - likes: number (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: feedback
+    // Document ID: feedbackId
+    // Fields:
+    //   - userId: string (optional)
+    //   - email: string (required)
+    //   - message: string (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.ownerId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "gayathreesulochana@gmail.com" && request.auth.token.email_verified == true)); // Default admin
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'isPremium', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.isPremium is bool;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['ownerId', 'platform', 'messages', 'settings', 'isPublic', 'likes', 'createdAt']) &&
+             data.ownerId == request.auth.uid &&
+             data.platform in ['whatsapp', 'imessage', 'messenger'] &&
+             data.messages is list &&
+             data.settings is map &&
+             data.isPublic is bool &&
+             data.likes is number;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['email', 'message', 'createdAt']) &&
+             isValidEmail(data.email) &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 5000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Test collection for connection health checks
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Only owner can read their own profile (PII protection)
+      allow read: if isOwner(userId) || isAdmin();
+      // Only owner can create/update their own profile
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.isPremium == resource.data.isPremium) || isAdmin();
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      // Public chats can be read by anyone, private ones only by owner
+      allow read: if resource.data.isPublic == true || isDocOwner();
+      // Only authenticated users can create chats
+      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+      // Only owner can update their own chat
+      allow update: if isDocOwner() && isValidChat(request.resource.data);
+      // Only owner can delete their own chat
+      allow delete: if isDocOwner();
+    }
+
+    // Feedback collection
+    match /feedback/{feedbackId} {
+      // Anyone can submit feedback (if we want to allow guest feedback)
+      // But we'll require an email
+      allow create: if isValidFeedback(request.resource.data);
+      // Only admins can read feedback (not implemented yet, but default deny)
+      allow read: if false;
+    }
+  }
+}

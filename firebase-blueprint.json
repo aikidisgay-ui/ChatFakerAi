@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Chat": {
+      "title": "Fake Chat",
+      "description": "A saved fake chat conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "platform": { "type": "string", "enum": ["whatsapp", "imessage", "messenger"] },
+        "contactName": { "type": "string" },
+        "contactPhoto": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "sender": { "type": "string", "enum": ["me", "them"] },
+              "timestamp": { "type": "string" },
+              "status": { "type": "string", "enum": ["sent", "delivered", "read"] },
+              "image": { "type": "string" }
+            }
+          }
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "battery": { "type": "number" },
+            "signal": { "type": "number" },
+            "wifi": { "type": "boolean" },
+            "time": { "type": "string" },
+            "showTyping": { "type": "boolean" },
+            "wallpaper": { "type": "string" }
+          }
+        },
+        "isPublic": { "type": "boolean" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "platform", "messages"]
+    },
+    "Feedback": {
+      "title": "User Feedback",
+      "description": "Feedback submitted by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["message", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Saved chats"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User feedback submissions"
+    }
+  }
+}

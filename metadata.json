@@ -1,0 +1,5 @@
+{
+  "name": "ChatFaker AI",
+  "description": "Advanced AI-powered fake chat generator and reply assistant.",
+  "requestFramePermissions": ["camera", "microphone"]
+}
